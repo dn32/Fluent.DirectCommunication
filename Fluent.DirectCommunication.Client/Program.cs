@@ -7,7 +7,7 @@ namespace Fluent.DirectCommunication.Client
         static void Main(string[] args)
         {
             Console.WriteLine("Starting server....");
-            new Connection<ClientOperations>("http://localhost:5000/hub", "ClientA", "GroupA");
+            new Connection<ClientOperations>("http://localhost:5000/FluentServerHub", $"CLIENTA", "GroupA");
             Console.WriteLine("Server started successfully!");
             Console.ReadLine();
         }

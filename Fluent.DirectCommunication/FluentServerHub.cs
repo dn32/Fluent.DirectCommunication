@@ -1,12 +1,11 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using System;
 using System.Collections.Generic;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace Fluent.DirectCommunication
 {
-    public partial class ServerHub : Hub
+    public class FluentServerHub : Hub
     {
         public static Dictionary<string, UserClient> UserClients { get; set; } = new Dictionary<string, UserClient>();
 
@@ -15,6 +14,7 @@ namespace Fluent.DirectCommunication
             var userClient = GetUser();
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, userClient.Group);
             await base.OnDisconnectedAsync(exception);
+            Message($"S - Unregister {userClient.Client}");
             UserClients.Remove(Context.ConnectionId);
         }
 
@@ -24,23 +24,23 @@ namespace Fluent.DirectCommunication
             return clientUser;
         }
 
-        public void Register(string client, string group)
+        public virtual void Register(string client, string group)
         {
-            UserClients.Add(Context.ConnectionId, new UserClient(Clients.Client(Context.ConnectionId), client, group));
+            if (!UserClients.ContainsKey(Context.ConnectionId))
+            {
+                UserClients.Add(Context.ConnectionId, new UserClient(Clients.Client(Context.ConnectionId), client, group));
+            }
+
             Groups.AddToGroupAsync(Context.ConnectionId, group).Wait();
-            Console.WriteLine($"S - Register {client}");
+            Message($"S - Register {client}");
         }
 
         public void ClientToServer(string client, object parameters)
         {
-            Console.WriteLine($"S - ClientToServer {client} {parameters}");
+            Message($"S - ClientToServer {client} {parameters}");
 
             var client_ = Clients.Client(Context.ConnectionId);
             var connectionId = Context.ConnectionId;
-            new Thread(() =>
-            {
-                InvokeClientMethodBefore(connectionId);
-            }).Start();
         }
 
         public void Return(string client, object return_)
@@ -49,11 +49,12 @@ namespace Fluent.DirectCommunication
             userClient.ReturnMethod = return_;
         }
 
-        private void InvokeClientMethodBefore(string connectionId)
+        private void Message(string msg)
         {
-            UserClients.TryGetValue(connectionId, out UserClient userClient);
-            var ret = userClient.Invoke("SelectSQL", new object[] { "select * from test" });
-            Console.WriteLine($"select * from test: {ret}");
+#if DEBUG
+            Console.WriteLine(msg);
+#endif
         }
+
     }
 }

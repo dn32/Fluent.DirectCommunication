@@ -1,5 +1,7 @@
 using Microsoft.AspNetCore.SignalR.Client;
+using Newtonsoft.Json;
 using System;
+using System.Net.Http;
 using System.Threading.Tasks;
 
 namespace Fluent.DirectCommunication
@@ -9,9 +11,11 @@ namespace Fluent.DirectCommunication
         private HubConnection connection;
 
         private T ClientOperations { get; set; }
+        public int MaxBufferSize { get; set; }
 
-        public Connection(string url, string client, string group)
+        public Connection(string url, string client, string group, int maxBufferSize = 10485760)
         {
+            MaxBufferSize = maxBufferSize;
             ClientOperations = new T();
             connection = new HubConnectionBuilder()
                 .WithUrl(url)
@@ -19,18 +23,35 @@ namespace Fluent.DirectCommunication
 
             connection.Closed += async (error) =>
             {
-                await Task.Delay(new Random().Next(0, 5) * 1000);
-                await connection.StartAsync();
+                await Connect(client, group);
             };
 
-            Connect().Wait();
+            Connect(client, group).Wait();
             StartEvent();
-            connection.InvokeAsync("Register", client, group);
         }
 
-        private async Task Connect()
+        private async Task Connect(string client, string group)
         {
-            await connection.StartAsync();
+        reconnect:
+            try
+            {
+                Message("Conecting...");
+                await connection.StartAsync();
+                await connection.InvokeAsync("Register", client, group);
+                Message("Conected!");
+            }
+            catch (Exception)
+            {
+                await Task.Delay(new Random().Next(0, 5) * 1000);
+                goto reconnect;
+            }
+        }
+
+        private void Message(string msg)
+        {
+#if DEBUG
+            Console.WriteLine(msg);
+#endif
         }
 
         private void StartEvent()
@@ -38,17 +59,44 @@ namespace Fluent.DirectCommunication
             connection.On<string, string, object[]>("ReceiveMessage", (method, operationExecutionId, parameters) =>
              {
                  var internalMethod = ClientOperations.GetType().GetMethod(method);
-                 var ret = internalMethod.Invoke(ClientOperations, parameters);
+
+                 object ret = null;
+                 var json = "";
+                 try
+                 {
+                     ret = internalMethod.Invoke(ClientOperations, parameters);
+                     json = JsonConvert.SerializeObject(ret);
+                     if (json.Length >= MaxBufferSize)
+                     {
+                         throw new Exception("Return exceeds buffer size.");
+                     }
+                 }
+                 catch (Exception ex)
+                 {
+                     ret = ex;
+                     json = JsonConvert.SerializeObject(ex);
+                 }
+
                  if (internalMethod.ReturnType != typeof(void))
                  {
-                     InvokeAsync("Return", operationExecutionId, ret);
+                     InvokeAsync("Return", operationExecutionId, json);
                  }
              });
         }
 
         private async void InvokeAsync(string method, string client, object parameters)
         {
-            await connection.InvokeAsync(method, client, parameters);
+            if (connection.State == HubConnectionState.Connected)
+            {
+                try
+                {
+                    await connection.InvokeAsync(method, client, parameters);
+                }
+                catch (Exception ex)
+                {
+                    throw ex;
+                }
+            }
         }
     }
 }

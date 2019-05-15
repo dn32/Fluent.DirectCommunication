@@ -1,13 +1,13 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using System;
+using System.Diagnostics;
 using System.Threading;
-using static Fluent.DirectCommunication.ServerHub;
 
 namespace Fluent.DirectCommunication
 {
     public static class Extension
     {
-        public static object Invoke(this UserClient userClient, string method, object[] parameter)
+        public static object Invoke(this UserClient userClient, string method, object[] parameter, int timeOutMs = 10000)
         {
             lock (userClient)
             {
@@ -21,12 +21,23 @@ namespace Fluent.DirectCommunication
                 userClient.ClientProxy.SendAsync("ReceiveMessage", method, userClient.OperationExecutionId, parameter).Wait();
             }
 
+            var t = new Stopwatch();
+            t.Start();
+
             while (true)
             {
-                Thread.Sleep(3);
+                if(t.ElapsedMilliseconds >= timeOutMs)
+                {
+                    t.Stop();
+                    userClient.OperationExecutionId = "";
+                    throw new TimeoutException($"Timeout invoking method {method}");
+                }
+
+                Thread.Sleep(1);
                 if (userClient.ReturnMethod != null)
                 {
                     userClient.OperationExecutionId = "";
+                    t.Stop();
                     return userClient.ReturnMethod;
                 }
             }

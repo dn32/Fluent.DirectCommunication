@@ -15,7 +15,7 @@ namespace Fluent.DirectCommunication.Server
         {
             app.UseSignalR(routes =>
             {
-                routes.MapHub<ServerHub>("/hub");
+                routes.MapHub<FluentServerHub>("/FluentServerHub");
             });
         }
     }
