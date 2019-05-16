@@ -14,11 +14,14 @@ namespace Fluent.DirectCommunication
 
         public object ReturnMethod { get; internal set; }
 
-        public UserClient(IClientProxy clientProxy, string client, string group)
+        public string AdditionalInformation { get; set; }
+
+        public UserClient(IClientProxy clientProxy, string client, string group, string additionalInformation)
         {
             ClientProxy = clientProxy;
             Client = client;
             Group = group;
+            AdditionalInformation = additionalInformation;
         }
     }
 }

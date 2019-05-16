@@ -16,6 +16,7 @@ namespace Fluent.DirectCommunication
             await base.OnDisconnectedAsync(exception);
             Message($"S - Unregister {userClient.Client}");
             UserClients.Remove(Context.ConnectionId);
+            Disconnected(userClient);
         }
 
         private UserClient GetUser()
@@ -24,15 +25,28 @@ namespace Fluent.DirectCommunication
             return clientUser;
         }
 
-        public virtual void Register(string client, string group)
+        public void Register(string client, string group)
         {
-            if (!UserClients.ContainsKey(Context.ConnectionId))
+            RegisterClient(client, group, "");
+        }
+
+        public virtual void Disconnected(UserClient userClient) { }
+
+        public virtual void Registered(UserClient userClient) { }
+
+        public void RegisterClient(string client, string group, string additionalInformation)
+        {
+            UserClients.TryGetValue(Context.ConnectionId, out UserClient userClient);
+            if (userClient == null)
             {
-                UserClients.Add(Context.ConnectionId, new UserClient(Clients.Client(Context.ConnectionId), client, group));
+                userClient = new UserClient(Clients.Client(Context.ConnectionId), client, group, additionalInformation);
+                UserClients.Add(Context.ConnectionId, userClient);
             }
 
             Groups.AddToGroupAsync(Context.ConnectionId, group).Wait();
             Message($"S - Register {client}");
+
+            Registered(userClient);
         }
 
         public void ClientToServer(string client, object parameters)

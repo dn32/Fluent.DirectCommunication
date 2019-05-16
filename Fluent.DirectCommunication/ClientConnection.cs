@@ -13,7 +13,7 @@ namespace Fluent.DirectCommunication
         private T ClientOperations { get; set; }
         public int MaxBufferSize { get; set; }
 
-        public Connection(string url, string client, string group, int maxBufferSize = 10485760)
+        public Connection(string url, string client, string group, int maxBufferSize = 10485760, string additionalInformation = "")
         {
             MaxBufferSize = maxBufferSize;
             ClientOperations = new T();
@@ -21,28 +21,23 @@ namespace Fluent.DirectCommunication
                 .WithUrl(url)
                 .Build();
 
-            connection.Closed += async (error) =>
-            {
-                await Connect(client, group);
-            };
-
-            Connect(client, group).Wait();
+            Connect(client, group, additionalInformation, url);
             StartEvent();
         }
 
-        private async Task Connect(string client, string group)
+        private void Connect(string client, string group, string additionalInformation, string url)
         {
         reconnect:
             try
             {
-                Message("Conecting...");
-                await connection.StartAsync();
-                await connection.InvokeAsync("Register", client, group);
+                Message($"Conecting {url}...");
+                connection.StartAsync().Wait();
+                connection.InvokeAsync("RegisterClient", client, group, additionalInformation).Wait();
                 Message("Conected!");
             }
             catch (Exception)
             {
-                await Task.Delay(new Random().Next(0, 5) * 1000);
+                Task.Delay(new Random().Next(0, 5) * 1000).Wait();
                 goto reconnect;
             }
         }
