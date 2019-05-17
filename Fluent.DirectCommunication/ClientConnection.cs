@@ -11,7 +11,10 @@ namespace Fluent.DirectCommunication
         private HubConnection connection;
 
         private T ClientOperations { get; set; }
+
         public int MaxBufferSize { get; set; }
+
+        private static object Lock = new object();
 
         public Connection(string url, string client, string group, int maxBufferSize = 10485760, string additionalInformation = "")
         {
@@ -21,24 +24,33 @@ namespace Fluent.DirectCommunication
                 .WithUrl(url)
                 .Build();
 
+            connection.Closed += async (error) =>
+            {
+                Connect(client, group, additionalInformation,  url);
+            };
+
             Connect(client, group, additionalInformation, url);
             StartEvent();
         }
-
+            
         private void Connect(string client, string group, string additionalInformation, string url)
         {
-        reconnect:
-            try
+            lock (Lock)
             {
-                Message($"Conecting {url}...");
-                connection.StartAsync().Wait();
-                connection.InvokeAsync("RegisterClient", client, group, additionalInformation).Wait();
-                Message("Conected!");
-            }
-            catch (Exception)
-            {
-                Task.Delay(new Random().Next(0, 5) * 1000).Wait();
-                goto reconnect;
+            reconnect:
+                try
+                {
+                    Message($"Conecting {url}...");
+
+                    connection.StartAsync().Wait();
+                    connection.InvokeAsync("RegisterClient", client, group, additionalInformation).Wait();
+                    Message("Conected!");
+                }
+                catch (Exception)
+                {
+                    Task.Delay(new Random().Next(0, 5) * 1000).Wait();
+                    goto reconnect;
+                }
             }
         }
 
