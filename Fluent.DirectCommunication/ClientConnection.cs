@@ -48,7 +48,7 @@ namespace Fluent.DirectCommunication
                 }
                 catch (Exception)
                 {
-                    Task.Delay(new Random().Next(0, 5) * 1000).Wait();
+                    Task.Delay(5000 + new Random().Next(0, 5) * 1000).Wait();
                     goto reconnect;
                 }
             }
