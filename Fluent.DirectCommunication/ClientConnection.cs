@@ -1,23 +1,26 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using Newtonsoft.Json;
 using System;
-using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Fluent.DirectCommunication
 {
     public class Connection<T> where T : class, new()
     {
+        private CancellationToken CancellationToken { get; }
+
         private HubConnection connection;
 
         private T ClientOperations { get; set; }
 
-        public int MaxBufferSize { get; set; }
+        private int MaxBufferSize { get; set; }
 
         private static object Lock = new object();
 
-        public Connection(string url, string client, string group, int maxBufferSize = 10485760, string additionalInformation = "")
+        public Connection(string url, string client, string group, CancellationToken cancellationToken, int maxBufferSize = 10485760, string additionalInformation = "")
         {
+            CancellationToken = cancellationToken;
             MaxBufferSize = maxBufferSize;
             ClientOperations = new T();
             connection = new HubConnectionBuilder()
@@ -26,13 +29,13 @@ namespace Fluent.DirectCommunication
 
             connection.Closed += async (error) =>
             {
-                Connect(client, group, additionalInformation,  url);
+                Connect(client, group, additionalInformation, url);
             };
 
             Connect(client, group, additionalInformation, url);
             StartEvent();
         }
-            
+
         private void Connect(string client, string group, string additionalInformation, string url)
         {
             lock (Lock)
@@ -40,15 +43,17 @@ namespace Fluent.DirectCommunication
             reconnect:
                 try
                 {
+                    if (CancellationToken.IsCancellationRequested) { return; }
                     Message($"Conecting {url}...");
 
-                    connection.StartAsync().Wait();
-                    connection.InvokeAsync("RegisterClient", client, group, additionalInformation).Wait();
+                    connection.StartAsync(CancellationToken).Wait();
+                    connection.InvokeAsync("RegisterClient", client, group, additionalInformation, CancellationToken).Wait();
                     Message("Conected!");
                 }
                 catch (Exception)
                 {
-                    Task.Delay(5000 + new Random().Next(0, 5) * 1000).Wait();
+                    Task.Delay(5000 + new Random().Next(0, 5) * 1000, CancellationToken).Wait();
+                    if (CancellationToken.IsCancellationRequested) { return; }
                     goto reconnect;
                 }
             }
@@ -97,7 +102,7 @@ namespace Fluent.DirectCommunication
             {
                 try
                 {
-                    await connection.InvokeAsync(method, client, parameters);
+                    await connection.InvokeAsync(method, client, parameters, CancellationToken);
                 }
                 catch (Exception ex)
                 {

@@ -7,7 +7,7 @@ namespace Fluent.DirectCommunication
 {
     public static class Extension
     {
-        public static object Invoke(this UserClient userClient, string method, object[] parameter, int timeOutMs = 10000)
+        public static object Invoke(this UserClient userClient, string method, object[] parameter, CancellationToken CancellationToken, int timeOutMs = 10000)
         {
             lock (userClient)
             {
@@ -32,6 +32,8 @@ namespace Fluent.DirectCommunication
                     userClient.OperationExecutionId = "";
                     throw new TimeoutException($"Timeout invoking method {method}");
                 }
+
+                if (CancellationToken.IsCancellationRequested) { throw new TimeoutException($"Operation canceled"); }
 
                 Thread.Sleep(1);
                 if (userClient.ReturnMethod != null)
