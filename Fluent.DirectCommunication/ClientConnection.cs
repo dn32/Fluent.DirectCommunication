@@ -9,30 +9,38 @@ namespace Fluent.DirectCommunication
     public class Connection<T> where T : class, new()
     {
         private CancellationToken CancellationToken { get; }
-
         private HubConnection connection;
-
         private T ClientOperations { get; set; }
-
         private int MaxBufferSize { get; set; }
-
-        private static object Lock = new object();
+        private string AdditionalInformation { get; }
+        private string Url { get; }
+        private string Client { get; }
+        private string Group { get; }
+        private object Lock = new object();
 
         public Connection(string url, string client, string group, CancellationToken cancellationToken, int maxBufferSize = 10485760, string additionalInformation = "")
         {
+            Url = url;
+            Client = client;
+            Group = group;
             CancellationToken = cancellationToken;
             MaxBufferSize = maxBufferSize;
+            AdditionalInformation = additionalInformation;
+        }
+
+        public void Start()
+        {
             ClientOperations = new T();
             connection = new HubConnectionBuilder()
-                .WithUrl(url)
+                .WithUrl(Url)
                 .Build();
 
             connection.Closed += async (error) =>
             {
-                Connect(client, group, additionalInformation, url);
+                Connect(Client, Group, AdditionalInformation, Url);
             };
 
-            Connect(client, group, additionalInformation, url);
+            Connect(Client, Group, AdditionalInformation, Url);
             StartEvent();
         }
 
@@ -96,13 +104,13 @@ namespace Fluent.DirectCommunication
              });
         }
 
-        private async void InvokeAsync(string method, string client, object parameters)
+        public async void InvokeAsync(string method, string client, string jsonParameters)
         {
             if (connection.State == HubConnectionState.Connected)
             {
                 try
                 {
-                    await connection.InvokeAsync(method, client, parameters, CancellationToken);
+                    await connection.InvokeAsync(method, client, jsonParameters, CancellationToken);
                 }
                 catch (Exception ex)
                 {
