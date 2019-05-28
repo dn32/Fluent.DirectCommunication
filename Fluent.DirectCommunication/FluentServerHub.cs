@@ -12,6 +12,11 @@ namespace Fluent.DirectCommunication
         public override async Task OnDisconnectedAsync(Exception exception)
         {
             var userClient = GetUser();
+            if(userClient == null)
+            {
+                return;
+            }
+
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, userClient.Group);
             await base.OnDisconnectedAsync(exception);
             Message($"S - Unregister {userClient.Client}");

@@ -7,7 +7,7 @@ namespace Fluent.DirectCommunication
 {
     public static class Extension
     {
-        public static object Invoke(this UserClient userClient, string method, object[] parameter, int timeOutMs = 10000)
+        public static object Invoke(this UserClient userClient, string method, object[] parameter, int timeOutMs = 10000, bool wait = true)
         {
             var cts = new CancellationTokenSource();
             var cancellationToken = cts.Token;
@@ -23,6 +23,11 @@ namespace Fluent.DirectCommunication
                 userClient.OperationExecutionId = Guid.NewGuid().ToString();
                 userClient.ReturnMethod = null;
                 userClient.ClientProxy.SendAsync("ReceiveMessage", method, userClient.OperationExecutionId, parameter).Wait();
+            }
+
+            if (!wait)
+            {
+                return null;
             }
 
             var t = new Stopwatch();
