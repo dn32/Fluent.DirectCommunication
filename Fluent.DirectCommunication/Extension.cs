@@ -27,6 +27,8 @@ namespace Fluent.DirectCommunication
 
             if (!wait)
             {
+                userClient.ReturnMethod = null;
+                userClient.OperationExecutionId = "";
                 return null;
             }
 

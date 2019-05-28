@@ -84,6 +84,11 @@ namespace Fluent.DirectCommunication
                  var json = "";
                  try
                  {
+                     if(internalMethod == null)
+                     {
+                         throw new Exception($"Method not found {method}");
+                     }
+
                      ret = internalMethod.Invoke(ClientOperations, parameters);
                      json = JsonConvert.SerializeObject(ret);
                      if (json.Length >= MaxBufferSize)
