@@ -37,7 +37,10 @@ namespace Fluent.DirectCommunication
 
             connection.Closed += async (error) =>
             {
-                Connect(Client, Group, AdditionalInformation, Url);
+                await Task.Run(() =>
+               {
+                   Connect(Client, Group, AdditionalInformation, Url);
+               });
             };
 
             Connect(Client, Group, AdditionalInformation, Url);
@@ -84,7 +87,7 @@ namespace Fluent.DirectCommunication
                  var json = "";
                  try
                  {
-                     if(internalMethod == null)
+                     if (internalMethod == null)
                      {
                          throw new Exception($"Method not found {method}");
                      }
@@ -104,22 +107,25 @@ namespace Fluent.DirectCommunication
 
                  if (internalMethod.ReturnType != typeof(void))
                  {
-                     InvokeAsync("Return", operationExecutionId, json);
+                     Invoke("Return", operationExecutionId, json, out  Exception ex);
+                     ret = ex;
+                     json = JsonConvert.SerializeObject(ex);
                  }
              });
         }
 
-        public async void InvokeAsync(string method, string client, string jsonParameters)
+        public void Invoke(string method, string client, string jsonParameters, out Exception exception)
         {
+            exception = null;
             if (connection.State == HubConnectionState.Connected)
             {
                 try
                 {
-                    await connection.InvokeAsync(method, client, jsonParameters, CancellationToken);
+                    connection.InvokeAsync(method, client, jsonParameters, CancellationToken);
                 }
                 catch (Exception ex)
                 {
-                    throw ex;
+                    exception = ex;
                 }
             }
         }

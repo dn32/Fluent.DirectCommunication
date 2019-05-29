@@ -13,17 +13,15 @@ namespace Fluent.DirectCommunication
             var cancellationToken = cts.Token;
             AppDomain.CurrentDomain.ProcessExit += (object sender, EventArgs e) => { cts.Cancel(); };
 
-            lock (userClient)
-            {
-                if (!string.IsNullOrWhiteSpace(userClient.OperationExecutionId))
-                {
-                    throw new Exception($"An operation already running for {userClient.Client}");
-                }
 
-                userClient.OperationExecutionId = Guid.NewGuid().ToString();
-                userClient.ReturnMethod = null;
-                userClient.ClientProxy.SendAsync("ReceiveMessage", method, userClient.OperationExecutionId, parameter).Wait();
+            if (!string.IsNullOrWhiteSpace(userClient.OperationExecutionId))
+            {
+                throw new Exception($"An operation already running for {userClient.Client}");
             }
+
+            userClient.OperationExecutionId = Guid.NewGuid().ToString();
+            userClient.ReturnMethod = null;
+            userClient.ClientProxy.SendAsync("ReceiveMessage", method, userClient.OperationExecutionId, parameter).Wait();
 
             if (!wait)
             {
@@ -37,7 +35,7 @@ namespace Fluent.DirectCommunication
 
             while (true)
             {
-                if(t.ElapsedMilliseconds >= timeOutMs)
+                if (t.ElapsedMilliseconds >= timeOutMs)
                 {
                     t.Stop();
                     userClient.OperationExecutionId = "";
