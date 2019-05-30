@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR.Client;
 using Newtonsoft.Json;
 using System;
+using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -9,14 +10,14 @@ namespace Fluent.DirectCommunication
     public class Connection<T> where T : class, new()
     {
         private CancellationToken CancellationToken { get; }
-        private HubConnection connection;
+        private HubConnection LocalConnection { get; set; }
         private T ClientOperations { get; set; }
         private int MaxBufferSize { get; set; }
         private string AdditionalInformation { get; }
         private string Url { get; }
         private string Client { get; }
         private string Group { get; }
-        private object Lock = new object();
+        private object Lock { get; set; } = new object();
 
         public Connection(string url, string client, string group, CancellationToken cancellationToken, int maxBufferSize = 10485760, string additionalInformation = "")
         {
@@ -31,11 +32,11 @@ namespace Fluent.DirectCommunication
         public void Start()
         {
             ClientOperations = new T();
-            connection = new HubConnectionBuilder()
+            LocalConnection = new HubConnectionBuilder()
                 .WithUrl(Url)
                 .Build();
 
-            connection.Closed += async (error) =>
+            LocalConnection.Closed += async (error) =>
             {
                 await Task.Run(() =>
                {
@@ -57,8 +58,8 @@ namespace Fluent.DirectCommunication
                     if (CancellationToken.IsCancellationRequested) { return; }
                     Message($"Conecting {url}...");
 
-                    connection.StartAsync(CancellationToken).Wait();
-                    connection.InvokeAsync("RegisterClient", client, group, additionalInformation, CancellationToken).Wait();
+                    LocalConnection.StartAsync(CancellationToken).Wait();
+                    LocalConnection.InvokeAsync("RegisterClient", client, group, additionalInformation, CancellationToken).Wait();
                     Message("Conected!");
                 }
                 catch (Exception)
@@ -79,49 +80,74 @@ namespace Fluent.DirectCommunication
 
         private void StartEvent()
         {
-            connection.On<string, string, object[]>("ReceiveMessage", (method, operationExecutionId, parameters) =>
+            LocalConnection.On<string, string, object[]>("ReceiveMessage", (method, operationExecutionId, parameters) =>
              {
-                 var internalMethod = ClientOperations.GetType().GetMethod(method);
-
-                 object ret = null;
-                 var json = "";
                  try
                  {
-                     if (internalMethod == null)
-                     {
-                         throw new Exception($"Method not found {method}");
-                     }
-
-                     ret = internalMethod.Invoke(ClientOperations, parameters);
-                     json = JsonConvert.SerializeObject(ret);
-                     if (json.Length >= MaxBufferSize)
-                     {
-                         throw new Exception("Return exceeds buffer size.");
-                     }
+                     new Thread(() => ReceiveMessage(method, operationExecutionId, parameters)).Start();
                  }
-                 catch (Exception ex)
+                 catch(Exception ex)
                  {
-                     ret = ex;
-                     json = JsonConvert.SerializeObject(ex);
-                 }
-
-                 if (internalMethod.ReturnType != typeof(void))
-                 {
-                     Invoke("Return", operationExecutionId, json, out  Exception ex);
-                     ret = ex;
-                     json = JsonConvert.SerializeObject(ex);
+                     Message($"Exception on ReceiveMessage {ex.Message}");
                  }
              });
+        }
+
+        private void ReceiveMessage(string method, string operationExecutionId, object[] parameters)
+        {
+            object ret = null;
+            var json = "";
+            MethodInfo internalMethod = null;
+
+            try
+            {
+                internalMethod = ClientOperations.GetType().GetMethod(method);
+            }
+            catch (Exception ex)
+            {
+                ret = ex;
+                json = JsonConvert.SerializeObject(ex);
+            }
+
+            if (ret == null)
+            {
+                try
+                {
+                    if (internalMethod == null)
+                    {
+                        throw new Exception($"Method not found {method}");
+                    }
+
+                    ret = internalMethod.Invoke(ClientOperations, parameters);
+                    json = JsonConvert.SerializeObject(ret);
+                    if (json.Length >= MaxBufferSize)
+                    {
+                        throw new Exception("Return exceeds buffer size.");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    ret = ex;
+                    json = JsonConvert.SerializeObject(ex);
+                }
+            }
+
+            if (internalMethod.ReturnType != typeof(void))
+            {
+                Invoke("Return", operationExecutionId, json, out Exception ex);
+                ret = ex;
+                json = JsonConvert.SerializeObject(ex);
+            }
         }
 
         public void Invoke(string method, string client, string jsonParameters, out Exception exception)
         {
             exception = null;
-            if (connection.State == HubConnectionState.Connected)
+            if (LocalConnection.State == HubConnectionState.Connected)
             {
                 try
                 {
-                    connection.InvokeAsync(method, client, jsonParameters, CancellationToken);
+                    LocalConnection.InvokeAsync(method, client, jsonParameters, CancellationToken);
                 }
                 catch (Exception ex)
                 {
