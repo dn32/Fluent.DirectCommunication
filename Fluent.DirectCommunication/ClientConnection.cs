@@ -7,17 +7,9 @@ using System.Threading.Tasks;
 
 namespace Fluent.DirectCommunication
 {
-    public class Connection<T> where T : class, new()
+    public class Connection<T> : BaseConnection where T : new()
     {
-        private CancellationToken CancellationToken { get; }
-        private HubConnection LocalConnection { get; set; }
         private T ClientOperations { get; set; }
-        private int MaxBufferSize { get; set; }
-        private string AdditionalInformation { get; }
-        private string Url { get; }
-        private string Client { get; }
-        private string Group { get; }
-        private object Lock { get; set; } = new object();
 
         public Connection(string url, string client, string group, CancellationToken cancellationToken, int maxBufferSize = 10485760, string additionalInformation = "")
         {
@@ -29,68 +21,19 @@ namespace Fluent.DirectCommunication
             AdditionalInformation = additionalInformation;
         }
 
-        public void Start()
-        {
-            ClientOperations = new T();
-            LocalConnection = new HubConnectionBuilder()
-                .WithUrl(Url)
-                .Build();
-
-            LocalConnection.Closed += async (error) =>
-            {
-                await Task.Run(() =>
-               {
-                   Connect(Client, Group, AdditionalInformation, Url);
-               });
-            };
-
-            Connect(Client, Group, AdditionalInformation, Url);
-            StartEvent();
-        }
-
-        private void Connect(string client, string group, string additionalInformation, string url)
-        {
-            lock (Lock)
-            {
-            reconnect:
-                try
-                {
-                    if (CancellationToken.IsCancellationRequested) { return; }
-                    Message($"Conecting {url}...");
-
-                    LocalConnection.StartAsync(CancellationToken).Wait();
-                    LocalConnection.InvokeAsync("RegisterClient", client, group, additionalInformation, CancellationToken).Wait();
-                    Message("Conected!");
-                }
-                catch (Exception)
-                {
-                    Task.Delay(5000 + new Random().Next(0, 5) * 1000, CancellationToken).Wait();
-                    if (CancellationToken.IsCancellationRequested) { return; }
-                    goto reconnect;
-                }
-            }
-        }
-
-        private void Message(string msg)
-        {
-#if DEBUG
-            Console.WriteLine(msg);
-#endif
-        }
-
-        private void StartEvent()
+        protected void StartEvent()
         {
             LocalConnection.On<string, string, object[]>("ReceiveMessage", (method, operationExecutionId, parameters) =>
-             {
-                 try
-                 {
-                     new Thread(() => ReceiveMessage(method, operationExecutionId, parameters)).Start();
-                 }
-                 catch(Exception ex)
-                 {
-                     Message($"Exception on ReceiveMessage {ex.Message}");
-                 }
-             });
+            {
+                try
+                {
+                    new Thread(() => ReceiveMessage(method, operationExecutionId, parameters)).Start();
+                }
+                catch (Exception ex)
+                {
+                    Message($"Exception on ReceiveMessage {ex.Message}");
+                }
+            });
         }
 
         private void ReceiveMessage(string method, string operationExecutionId, object[] parameters)
@@ -119,10 +62,13 @@ namespace Fluent.DirectCommunication
                     }
 
                     ret = internalMethod.Invoke(ClientOperations, parameters);
-                    json = JsonConvert.SerializeObject(ret);
-                    if (json.Length >= MaxBufferSize)
+                    if (ret != null)
                     {
-                        throw new Exception("Return exceeds buffer size.");
+                        json = JsonConvert.SerializeObject(ret);
+                        if (json.Length >= MaxBufferSize)
+                        {
+                            throw new Exception("Return exceeds buffer size.");
+                        }
                     }
                 }
                 catch (Exception ex)
@@ -132,7 +78,7 @@ namespace Fluent.DirectCommunication
                 }
             }
 
-            if (internalMethod.ReturnType != typeof(void))
+            if (internalMethod?.ReturnType != typeof(void))
             {
                 Invoke("Return", operationExecutionId, json, out Exception ex);
                 ret = ex;
@@ -140,20 +86,25 @@ namespace Fluent.DirectCommunication
             }
         }
 
-        public void Invoke(string method, string client, string jsonParameters, out Exception exception)
+        public void Start()
         {
-            exception = null;
-            if (LocalConnection.State == HubConnectionState.Connected)
+            ClientOperations = new T();
+            LocalConnection = new HubConnectionBuilder()
+                .WithUrl(Url)
+                .Build();
+
+            LocalConnection.Closed += async (error) =>
             {
-                try
+                if (CancellationToken.IsCancellationRequested) { return; }
+
+                await Task.Run(() =>
                 {
-                    LocalConnection.InvokeAsync(method, client, jsonParameters, CancellationToken);
-                }
-                catch (Exception ex)
-                {
-                    exception = ex;
-                }
-            }
+                    Connect(Client, Group, AdditionalInformation, Url);
+                });
+            };
+
+            Connect(Client, Group, AdditionalInformation, Url);
+            StartEvent();
         }
     }
 }
