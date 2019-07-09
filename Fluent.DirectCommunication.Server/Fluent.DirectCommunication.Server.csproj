@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Fluent.DirectCommunication.Pusher\Fluent.DirectCommunicationPusher.csproj" />
     <ProjectReference Include="..\Fluent.DirectCommunication\Fluent.DirectCommunication.csproj" />
   </ItemGroup>
 

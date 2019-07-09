@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netcoreapp2.2</TargetFramework>
+    <RootNamespace>Fluent.DirectCommunicationPusher</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="PusherClient" Version="1.0.2" />
+    <PackageReference Include="PusherServer" Version="4.2.0" />
+  </ItemGroup>
+
+</Project>
