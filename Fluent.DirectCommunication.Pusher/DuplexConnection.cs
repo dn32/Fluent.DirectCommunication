@@ -31,8 +31,8 @@ namespace Fluent.DirectCommunicationPusher
         public void CreateConnectionToReceive(string receptionChannel)
         {
             ConnectionToReceive = new PusherClient.Pusher(Credentials.AppKey);
-            ConnectionToReceive.ConnectionStateChanged += (object sender, PusherClient.ConnectionState state) => Util.Message("Connection state: " + state.ToString()); ;
-            ConnectionToReceive.Error += (object sender, PusherClient.PusherException error) => Util.Message("Pusher Channels Error: " + error.ToString()); ;
+            ConnectionToReceive.ConnectionStateChanged += (object sender, PusherClient.ConnectionState state) => Util.Message("DuplexConnection state: " + state.ToString()); ;
+            ConnectionToReceive.Error += (object sender, PusherClient.PusherException error) => Util.Message("DuplexConnection Client Error: " + error.ToString()); ;
             ConnectionToReceive.ConnectAsync();
 
             ConnectionToReceive.SubscribeAsync(receptionChannel).Result.BindAll((string method, dynamic data) =>
@@ -83,19 +83,18 @@ namespace Fluent.DirectCommunicationPusher
 
         public void ConnectToSend()
         {
-            //var options = new PusherServer.PusherOptions { Cluster = "mt1", Encrypted = true };
-            //ConnectionToSend = new PusherServer.Pusher("819722", "5569ed05c179202d39a4", "0ea48de89d8aee835eea", options);
             ConnectionToSend = new PusherServer.Pusher(Credentials.AppId, Credentials.AppKey, Credentials.AppSecret, Credentials.Options);
         }
+
+        #endregion
+
+        #region OPERATION
 
         public string[] GetClients()
         {
             var canaisAtivos = ConnectionToSend.GetAsync<PusherServer.ChannelsList>("/channels", new { filter_by_prefix = "CLIENT-" }).Result;
-            var channels = canaisAtivos.Data.Channels.Select(x => x.Key).ToArray();
-            return channels;
+            return canaisAtivos.Data.Channels.Select(x => x.Key).ToArray();
         }
-
-        #endregion
 
         public RX CallAndResult(TX txData, int timeOutMs = 10000)
         {
@@ -128,5 +127,7 @@ namespace Fluent.DirectCommunicationPusher
                 if (timer.ElapsedMilliseconds >= timeOutMs) { throw new TimeoutException($"Time expired executing operation {txData.Operation} on client {txData.Destination}"); }
             }
         }
+
+        #endregion
     }
 }
