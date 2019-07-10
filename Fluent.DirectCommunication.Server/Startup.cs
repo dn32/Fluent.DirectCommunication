@@ -2,6 +2,7 @@
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.DependencyInjection;
+using Newtonsoft.Json;
 using System;
 using System.Threading;
 
@@ -21,24 +22,47 @@ namespace Fluent.DirectCommunication.Server
                 routes.MapHub<FluentServerHub>("/FluentServerHub");
             });
 
-            var channel = "CH1_SERVER";
-            var conn = new DuplexConnection<ServerOperations>(channel);
+            var credentials = new Credentials
+            {
+                AppId = "819722",
+                AppKey = "5569ed05c179202d39a4",
+                AppSecret = "0ea48de89d8aee835eea",
+                Options = new PusherServer.PusherOptions { Cluster = "mt1", Encrypted = true }
+            };
+            var clientId = "SUPPORT";
+            var conn = new DuplexConnection<LocalTransmissionContract, LocalContractOfReturn>(clientId, credentials);
 
             new Thread(() =>
                 {
                     while (true)
                     {
-                        var channels = conn.GetCannels();
-                        Console.WriteLine($"Clientes online: {string.Join(", ", channels)}");
-
-                        if (channels.Length > 0)
+                        try
                         {
-                            foreach (var chann in channels)
+                            var clients = conn.GetClients();
+                            Console.WriteLine($"Online clients: {string.Join(", ", clients)}");
+
+                            if (clients.Length > 0)
                             {
-                                var data = new Client { Name = "Client name" };
-                                var ret = conn.CallAndResult(chann, "TestMethod", data, int.MaxValue);
-                                Console.WriteLine(ret);
+                                foreach (var chann in clients)
+                                {
+                                    var localTransmissionContract = new LocalTransmissionContract
+                                    {
+                                        Name = "Client name",
+                                        Destination = chann,//"CLIENT_01",
+                                        Operation = "TestMethod",
+                                        Sender = clientId
+                                    };
+
+                                    var ret = conn.CallAndResult(localTransmissionContract, int.MaxValue);
+                                    var json = JsonConvert.SerializeObject(ret);
+                                    Console.WriteLine($"Return: {json}");
+                                }
                             }
+                        }
+                        catch(Exception ex)
+                        {
+                            var json = JsonConvert.SerializeObject(ex);
+                            Console.WriteLine(json);
                         }
 
                         Thread.Sleep(1000);
@@ -48,7 +72,7 @@ namespace Fluent.DirectCommunication.Server
         }
     }
 
-    class Client
+    public class LocalTransmissionContract : TransmissionContract
     {
         public string Name { get; set; }
     }
