@@ -29,6 +29,8 @@ namespace Fluent.DirectCommunication.Server
                 AppSecret = "0ea48de89d8aee835eea",
                 Options = new PusherServer.PusherOptions { Cluster = "mt1", Encrypted = true }
             };
+
+            //var clientId = "presence-test-channel-async-1";
             var clientId = "SUPPORT";
             var conn = new DuplexConnection<LocalTransmissionContract, LocalContractOfReturn>(clientId, credentials);
 
@@ -53,13 +55,14 @@ namespace Fluent.DirectCommunication.Server
                                         Sender = clientId
                                     };
 
-                                    var ret = conn.CallAndResult(localTransmissionContract, int.MaxValue);
+                                    var tokenId = "0.1";
+                                    var ret = conn.CallAndResult(localTransmissionContract, int.MaxValue, tokenId);
                                     var json = JsonConvert.SerializeObject(ret);
                                     Console.WriteLine($"Return: {json}");
                                 }
                             }
                         }
-                        catch(Exception ex)
+                        catch (Exception ex)
                         {
                             var json = JsonConvert.SerializeObject(ex);
                             Console.WriteLine(json);

@@ -26,7 +26,7 @@ namespace Fluent.DirectCommunicationPusher
             return types;
         }
 
-        public static T DynamicToObject<T>(dynamic data) where T: class, new()
+        public static T DynamicToObject<T>(dynamic data) where T : class, new()
         {
             return JsonConvert.DeserializeObject<T>(JsonConvert.SerializeObject(data)) as T;
         }
