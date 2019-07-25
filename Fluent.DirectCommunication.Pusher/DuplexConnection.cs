@@ -8,57 +8,51 @@ using System.Threading;
 
 namespace Fluent.DirectCommunicationPusher
 {
-    public class Authorizer : PusherClient.IAuthorizer
-    {
-        private readonly string _userName;
+    //public class Authorizer : PusherClient.IAuthorizer
+    //{
+    //    private readonly string _userName;
 
-        public Authorizer(string userName)
-        {
-            _userName = userName;
-        }
+    //    public Authorizer(string userName)
+    //    {
+    //        _userName = userName;
+    //    }
 
-        public string Authorize(string channelName, string socketId)
-        {
-            var Config = new Credentials
-            {
-                AppId = "819722",
-                AppKey = "5569ed05c179202d39a4",
-                AppSecret = "0ea48de89d8aee835eea",
-                Options = new PusherServer.PusherOptions { Cluster = "mt1", Encrypted = true }
-            };
+    //    public string Authorize(string channelName, string socketId)
+    //    {
+    //        var Config = new Credentials
+    //        {
+    //            AppId = "819722",
+    //            AppKey = "5569ed05c179202d39a4",
+    //            AppSecret = "0ea48de89d8aee835eea",
+    //            Options = new PusherServer.PusherOptions { Cluster = "mt1", Encrypted = true }
+    //        };
 
-            var provider = new PusherServer.Pusher(Config.AppId, Config.AppKey, Config.AppSecret);
+    //        var provider = new PusherServer.Pusher(Config.AppId, Config.AppKey, Config.AppSecret);
 
-            string authData;
+    //        string authData;
 
-            if (channelName.StartsWith("presence-"))
-            {
-                var channelData = new PresenceChannelData
-                {
-                    user_id = socketId,
-                    user_info = new Info
-                    {
-                        Name = _userName,
-                        Teste = "123"
-                    }
-                };
+    //        if (channelName.StartsWith("presence-"))
+    //        {
+    //            var channelData = new PresenceChannelData
+    //            {
+    //                user_id = socketId,
+    //                user_info = new Info
+    //                {
+    //                    Name = _userName,
+    //                    Teste = "123"
+    //                }
+    //            };
 
-                authData = provider.Authenticate(channelName, socketId, channelData).ToJson();
-            }
-            else
-            {
-                authData = provider.Authenticate(channelName, socketId).ToJson();
-            }
+    //            authData = provider.Authenticate(channelName, socketId, channelData).ToJson();
+    //        }
+    //        else
+    //        {
+    //            authData = provider.Authenticate(channelName, socketId).ToJson();
+    //        }
 
-            return authData;
-        }
-    }
-
-    public class Info
-    {
-        public string Name { get; set; }
-        public string Teste { get; set; }
-    }
+    //        return authData;
+    //    }
+    //}
 
     public partial class DuplexConnection : IDisposable
     {
@@ -71,7 +65,6 @@ namespace Fluent.DirectCommunicationPusher
         private Credentials Credentials { get; set; }
         public string ClientId { get; }
         public string Canal { get; }
-        public Authorizer Authorizer { get; set; }
 
         #endregion
 
@@ -87,13 +80,13 @@ namespace Fluent.DirectCommunicationPusher
 
         public void CreateConnectionToReceive(string receptionChannel)
         {
-            Authorizer = new Authorizer(receptionChannel);
+           // Authorizer = new Authorizer(receptionChannel);
             ConnectionToReceive = new PusherClient.Pusher(Credentials.AppKey);
             //ConnectionToReceive = new PusherClient.Pusher(Credentials.AppKey, new PusherClient.PusherOptions { Authorizer = Authorizer });
             ConnectionToReceive.ConnectionStateChanged += (object sender, PusherClient.ConnectionState state) => Util.Message("DuplexConnection state: " + state.ToString()); ;
             ConnectionToReceive.Error += (object sender, PusherClient.PusherException error) => Util.Message("DuplexConnection Client Error: " + error.ToString()); ;
             ConnectionToReceive.ConnectAsync();
-
+            
             ConnectionToReceive.SubscribeAsync(receptionChannel).Result.BindAll((string method, dynamic data) =>
              {
                  if (method == ContractOfReturn.OPERATION_RETURN_NAME) { return; }
@@ -116,9 +109,7 @@ namespace Fluent.DirectCommunicationPusher
 
                 var firstInstance = Activator.CreateInstance(first) as IRequestController;
 
-                var ret = firstInstance.Invoke(data) as ContractOfReturn;
-                ret.Sucess = true;
-                return ret;
+                return firstInstance.Invoke(data) as ContractOfReturn;
             }
             catch (Exception ex)
             {
@@ -151,8 +142,13 @@ namespace Fluent.DirectCommunicationPusher
 
         public string[] GetClients()
         {
-            //var canaisAtivos = ConnectionToSend.GetAsync<PusherServer.ChannelsList>("/channels", new { filter_by_prefix = "CLIENT-" }).Result;
-            var canaisAtivos = ConnectionToSend.GetAsync<PusherServer.ChannelsList>("/channels").Result;
+            var canaisAtivos = ConnectionToSend.GetAsync<ChannelsList>("/channels").Result;
+            return canaisAtivos.Data.Channels.Select(x => x.Key).ToArray();
+        }
+
+        public string[] GetClientsByPrefix(string prefix)
+        {
+            var canaisAtivos = ConnectionToSend.GetAsync<ChannelsList>("/channels", new { filter_by_prefix = prefix }).Result;
             return canaisAtivos.Data.Channels.Select(x => x.Key).ToArray();
         }
 
