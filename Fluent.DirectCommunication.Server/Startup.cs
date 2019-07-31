@@ -32,7 +32,7 @@ namespace Fluent.DirectCommunication.Server
 
             //var clientId = "presence-test-channel-async-1";
             var clientId = "SUPPORT";
-            var conn = new DuplexConnection<LocalTransmissionContract, LocalContractOfReturn>(clientId, credentials);
+            var conn = new DuplexConnection(clientId, credentials);
 
             new Thread(() =>
                 {

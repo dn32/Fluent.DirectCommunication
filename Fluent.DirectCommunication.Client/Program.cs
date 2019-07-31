@@ -28,7 +28,7 @@ namespace Fluent.DirectCommunication.Client
 
             var clientId = "client-1";
            // var clientId = "presence-test-channel-async-2";
-            var conn = new DuplexConnection<TransmissionContract, LocalContractOfReturn>(clientId, credentials);
+            var conn = new DuplexConnection(clientId, credentials);
 
             {
                 Thread.Sleep(2000);
