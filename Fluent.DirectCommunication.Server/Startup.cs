@@ -15,7 +15,7 @@ namespace Fluent.DirectCommunication.Server
             services.AddSignalR();
         }
 
-        public void Configure(IApplicationBuilder app, IHostingEnvironment env)
+        public void Configure(IApplicationBuilder app, IHostingEnvironment env, IApplicationLifetime applicationLifetime)
         {
             app.UseSignalR(routes =>
             {
@@ -24,14 +24,13 @@ namespace Fluent.DirectCommunication.Server
 
             var credentials = new Credentials
             {
-                AppId = "819722",
-                AppKey = "5569ed05c179202d39a4",
-                AppSecret = "0ea48de89d8aee835eea",
+                AppId = "819724",
+                AppKey = "f22312d8ee405fae2c76",
+                AppSecret = "dafb2ba71abd61ec8d4f",
                 Options = new PusherServer.PusherOptions { Cluster = "mt1", Encrypted = true }
             };
 
-            //var clientId = "presence-test-channel-async-1";
-            var clientId = "SUPPORT";
+            var clientId = "TEST_CLIENT";
             var conn = new DuplexConnection(clientId, credentials);
 
             new Thread(() =>
