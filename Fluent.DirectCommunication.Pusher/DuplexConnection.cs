@@ -85,7 +85,7 @@ namespace Fluent.DirectCommunicationPusher
 
         public void CreateConnectionToReceive(string receptionChannel)
         {
-            inicio:
+        inicio:
 
             if (CancellationToken.IsCancellationRequested)
             {
@@ -94,7 +94,7 @@ namespace Fluent.DirectCommunicationPusher
 
             try
             {
-                ConnectionToReceive = new PusherClient.Pusher(Credentials.AppKey);
+                ConnectionToReceive = new PusherClient.Pusher(Credentials.AppKey, new PusherClient.PusherOptions { Encrypted = true });
                 ConnectionToReceive.ConnectionStateChanged += ConnectionStateChanged;
                 ConnectionToReceive.Error += Erro;
                 ConnectionToReceive.Disconnected += Disconnected;
@@ -135,7 +135,7 @@ namespace Fluent.DirectCommunicationPusher
                 }
 
                 Util.Message("DuplexConnection Starting...");
-                ConnectionToReceive.ConnectAsync();
+                ConnectionToReceive.ConnectAsync().Wait();
             }
             catch (Exception ex)
             {
@@ -148,6 +148,8 @@ namespace Fluent.DirectCommunicationPusher
 
         private void Unsubscribe(string channelName)
         {
+            if (ConnectionToReceive?.Channels == null) { return; }
+
             if (ConnectionToReceive.Channels.TryGetValue(channelName, out PusherClient.Channel channel))
             {
                 channel.Unsubscribe();
