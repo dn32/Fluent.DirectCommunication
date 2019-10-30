@@ -85,7 +85,7 @@ namespace Fluent.DirectCommunicationPusher
 
         public void CreateConnectionToReceive(string receptionChannel)
         {
-        inicio:
+            inicio:
 
             if (CancellationToken.IsCancellationRequested)
             {
@@ -119,6 +119,7 @@ namespace Fluent.DirectCommunicationPusher
                         if (method == ContractOfReturn.OPERATION_RETURN_NAME) { return; }
 
                         var transmissionContract = Util.DynamicToObject<TransmissionContract>(data) as TransmissionContract;
+                        if (transmissionContract.Operation == null) { transmissionContract = JsonConvert.DeserializeObject<TransmissionContract>(transmissionContract.Data); }
                         var return_ = Execute(transmissionContract);
                         TXExtension.ReturnToClient(ConnectionToSend, transmissionContract.ReturnIdChannel, return_);
                     });
@@ -166,7 +167,7 @@ namespace Fluent.DirectCommunicationPusher
 
                 var first = Implements.FirstOrDefault(x => x.Name.Equals(data.Operation, StringComparison.InvariantCultureIgnoreCase));
 
-                if (first == null) { throw new Exception($"No Request Controller implementation found with name {data.Operation}"); }
+                if (first == null) { throw new Exception($"No Request Controller implementation found with name '{data.Operation}'"); }
 
                 var firstInstance = Activator.CreateInstance(first) as IRequestController;
 
